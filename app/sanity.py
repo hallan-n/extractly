@@ -1,42 +1,94 @@
-clone
-calc
-concat
-after
-until
-replace
-value
-case
-ignore-if
-not-contain
-not-equal
-if-existe-text
-if-not-exist-text
-get-date
-verbose-date
-get-cnpj
-get-cpf
-get-cpf-cnpj
-get-word
-get-first-word
-get-last-word
-get-number-dig
-get-year
-get-cep
-get-chassi
-get-placa
-get-uf
-get-fone
-get-cell
-get-tell
-get-email
-get-ddd
-get-money
-get-float
-get-int
-only-alfa
-only-numbers
-remove-ddd
-remove-date
-remove-uf
-remove-fone
-remove-number
+import re
+
+
+def concat(value: str, params: str):
+    return value + params
+
+
+def after(value: str, params: str):
+    return value[value.find(params) + 1 :]
+
+
+def until(value: str, params: str):
+    return value[: value.find(params)]
+
+
+def replace(value: str, params: str):
+    return value.replace(params, "")
+
+
+def case(value: str, params: str):
+    case, then = params.split("|")
+    if value == case:
+        return then
+    return value
+
+
+def ignore_if(value: str, params: str):
+    if value == params:
+        return None
+    return value
+
+
+def not_contain(value: str, params: str):
+    return value if not params in value else None
+
+
+def not_equal(value: str, params: str):
+    return value if value != params else None
+
+
+def if_existe_text(value: str, params: str):
+    return value if params in value else None
+
+
+def if_not_exist_text(value: str, params: str):
+    return value if not params in value else None
+
+
+def get_date(value: str, params: str): ...
+def verbose_date(value: str, params: str): ...
+def get_cnpj(value: str, params: str): ...
+def get_cpf(value: str, params: str): ...
+def get_cpf_cnpj(value: str, params: str): ...
+def get_word(value: str, params: str): ...
+def get_first_word(value: str, params: str): ...
+def get_last_word(value: str, params: str): ...
+def get_number_dig(value: str, params: str): ...
+def get_year(value: str, params: str): ...
+def get_cep(value: str, params: str): ...
+def get_chassi(value: str, params: str): ...
+def get_placa(value: str, params: str): ...
+def get_uf(value: str, params: str): ...
+def get_fone(value: str, params: str): ...
+def get_cell(value: str, params: str): ...
+def get_tell(value: str, params: str): ...
+def get_email(value: str, params: str): ...
+def get_ddd(value: str, params: str): ...
+def get_money(value: str, params: str): ...
+def get_float(value: str, params: str): ...
+def get_int(value: str, params: str): ...
+def only_alfa(value: str, params: str): ...
+def only_numbers(value: str, params: str): ...
+def remove_ddd(value: str, params: str): ...
+def remove_date(value: str, params: str): ...
+def remove_uf(value: str, params: str): ...
+def remove_fone(value: str, params: str): ...
+def remove_number(value: str, params: str): ...
+
+
+def sanity(command: str, value: str):
+    commands = command.split(":")
+
+    try:
+        if len(commands) == 1:
+            callback = commands[0]
+            return eval(f"{callback}(value)")
+        else:
+            callback = commands[0]
+            params = commands[1]
+
+            return eval(f"{commands[0]}(value, params)")
+
+    except Exception as e:
+        raise Exception(f"Função Sanity não encontrado: {e}")
