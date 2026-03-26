@@ -1,29 +1,22 @@
-from dataclasses import dataclass, field
+from pydantic import BaseModel
 
 
-class Sanity:
-    replace: str
-
-
-@dataclass
-class Box:
+class Box(BaseModel):
     name: str  # Nome do campo
     page: int  # Numero da página
     x: float  # Posição X em relação a página
     y: float  # Posição Y em relação a página
     width: float  # Largura da Box
     height: float  # Altura da Box
-    sanities: list[str] = field(default_factory=list)  # Lista de sanitys
+    sanities: list[str] = []  # Lista de sanitys
 
 
-@dataclass
-class Template:
+class Template(BaseModel):
     name: str
     fields: list[Box]
 
 
-@dataclass
-class Word:
+class Word(BaseModel):
     text: str  # texto da palavra extraída
     x0: float  # posição horizontal inicial (esquerda)
     x1: float  # posição horizontal final (direita)
@@ -36,8 +29,19 @@ class Word:
     direction: str  # direção do texto ("ltr" = esquerda→direita)
 
 
-@dataclass
-class Page:
+class Page(BaseModel):
     width: float  # Largura da página
     height: float  # Altura da página
     words: list[Word]
+
+
+# print(Template(
+#     name="Rescisão",
+#     fields=[
+#         Box(name="cnpj", page=0, x=43, y=71, width=91, height=13, sanities=["get_int:3", "until:1"]),
+#         Box(name="razao_social", page=0, x=140, y=71, width=209, height=13),
+#         Box(name="endereco", page=0, x=43, y=94, width=70, height=12),
+#         Box(name="cep", page=0, x=243, y=115, width=56, height=15),
+#         Box(name="bairro", page=0, x=401, y=94, width=76, height=12),
+#     ],
+# ).dict())

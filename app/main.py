@@ -1,9 +1,15 @@
+import json
+import os
+import uuid
+
 import pdfplumber
+import uvicorn
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from models import Box, Page, Template, Word
 from sanity import sanity
 
 
-def extract_page(pdf_path) -> list[Page]:
+def extract_page(pdf_path: str) -> list[Page]:
     pages = []
     with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
@@ -20,9 +26,8 @@ def extract_page(pdf_path) -> list[Page]:
 def extract_text(words: list[Word], box: Box) -> str:
     result = []
     for word in words:
-        if (
-            box.x <= word.x0 <= box.x + box.width
-            and box.y <= word.top <= box.y + box.height
+        if (box.x <= word.x0 and word.x0 <= box.x + box.width) and (
+            box.y <= word.top and word.top <= box.y + box.height
         ):
             result.append(word.text)
     return " ".join(result)
@@ -30,6 +35,8 @@ def extract_text(words: list[Word], box: Box) -> str:
 
 def process_pdf(template: Template, pdf_path: str):
     pages = extract_page(pdf_path)
+    if not pages:
+        raise ValueError("Erro ao extrair texto das páginas")
 
     model = {"template_name": template.name}
 
@@ -43,17 +50,35 @@ def process_pdf(template: Template, pdf_path: str):
     return model
 
 
-template = Template(
-    name="Rescisão",
-    fields=[
-        Box(name="cnpj",page=0,x=43,y=71,width=91,height=13,sanities=["replace:0001"]),
-        Box(name="razao_social", page=0, x=140, y=71, width=209, height=13),
-        Box(name="endereco", page=0, x=43, y=94, width=70, height=12),
-        Box(name="cep", page=0, x=243, y=115, width=56, height=15),
-        Box(name="bairro", page=0, x=401, y=94, width=76, height=12),
-    ],
-)
+app = FastAPI()
+UPLOAD_DIR = "./uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-print(
-    process_pdf(template, "/home/neves/Documentos/extractly/RESCISÃO DE CONTRATO.pdf")
-)
+
+@app.post("/")
+async def process_file(template: Template | str, file: UploadFile = File(...)):
+    template_dict = json.loads(template)
+    template = Template(**template_dict)
+
+    if file.content_type != "application/pdf":
+        raise HTTPException(400, "Aceito somente arquivos PDF")
+
+    filename = f"{uuid.uuid4()}.pdf"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    with open(file_path, "wb") as f:
+        while chunk := await file.read(1024 * 1024):
+            f.write(chunk)
+
+    try:
+        result = process_pdf(template, file_path)
+        return result
+    except Exception as e:
+        raise HTTPException(403, f"Erro ao processar PDF: {e}")
+
+    finally:
+        os.remove(file_path)
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -31,50 +31,114 @@ def ignore_if(value: str, params: str):
 
 
 def not_contain(value: str, params: str):
-    return value if not params in value else None
+    return value if not params in value else ""
 
 
 def not_equal(value: str, params: str):
-    return value if value != params else None
+    return value if value != params else ""
 
 
 def if_existe_text(value: str, params: str):
-    return value if params in value else None
+    return value if params in value else ""
 
 
 def if_not_exist_text(value: str, params: str):
-    return value if not params in value else None
+    return value if not params in value else ""
 
 
-def get_date(value: str, params: str): ...
-def verbose_date(value: str, params: str): ...
-def get_cnpj(value: str, params: str): ...
-def get_cpf(value: str, params: str): ...
-def get_cpf_cnpj(value: str, params: str): ...
-def get_word(value: str, params: str): ...
-def get_first_word(value: str, params: str): ...
-def get_last_word(value: str, params: str): ...
-def get_number_dig(value: str, params: str): ...
-def get_year(value: str, params: str): ...
-def get_cep(value: str, params: str): ...
-def get_chassi(value: str, params: str): ...
-def get_placa(value: str, params: str): ...
-def get_uf(value: str, params: str): ...
-def get_fone(value: str, params: str): ...
-def get_cell(value: str, params: str): ...
-def get_tell(value: str, params: str): ...
-def get_email(value: str, params: str): ...
-def get_ddd(value: str, params: str): ...
-def get_money(value: str, params: str): ...
-def get_float(value: str, params: str): ...
-def get_int(value: str, params: str): ...
-def only_alfa(value: str, params: str): ...
-def only_numbers(value: str, params: str): ...
-def remove_ddd(value: str, params: str): ...
-def remove_date(value: str, params: str): ...
-def remove_uf(value: str, params: str): ...
-def remove_fone(value: str, params: str): ...
-def remove_number(value: str, params: str): ...
+def get_date(value: str, params: str | int = 0):
+    matches = re.findall(r"((\d{4}|\d{2})(\/|-|\.)){2}(\d{4}|\d{2})", value)
+    return matches[int(params)] if matches else ""
+
+
+def get_cnpj(value: str, params: str | int = 0):
+    matches = re.findall(r"\d{14}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}", value)
+    return matches[int(params)] if matches else ""
+
+
+def get_cpf(value: str, params: str | int = 0):
+    matches = re.findall(r"\d{11}|(\d{3}(\.)?){3}-\d{2}", value)
+    return matches[int(params)] if matches else ""
+
+
+def get_cpf_cnpj(value: str, params: str | int = 0):
+    matches = re.findall(
+        r"(\d{14}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})|(\d{11}|(\d{3}(\.)?){3}-\d{2})",
+        value,
+    )
+    return matches[int(params)] if matches else ""
+
+
+def get_first_word(value: str):
+    if data := re.match(r"^\w+(\W)?", value):
+        return data.group()
+    return ""
+
+
+def get_last_word(value: str):
+    if data := re.match(r"\w+(\W)?$", value):
+        return data.group()
+    return ""
+
+
+def get_cep(value: str, params: str | int = 0):
+    matches = re.findall(r"\d{8}|\d{5}-\d{3}", value)
+    return matches[int(params)] if matches else ""
+
+
+def get_uf(value: str, params: str | int = 0):
+    matches = re.findall(
+        r"(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)",
+        value.upper(),
+    )
+    return matches[int(params)] if matches else ""
+
+
+def get_fone(value: str, params: str):
+    matches = re.findall(
+        r"(\s{0,}\+\d{2}\s{0,})?(\(|\[)?\d{2}(\)|\])?(-)?\s{0,}\d{4,5}(-|\s{0,})?\d{4}",
+        value,
+    )
+    return matches[int(params)] if matches else ""
+
+
+def get_email(value: str, params: str):
+    matches = re.findall(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", value)
+    return matches[int(params)] if matches else ""
+
+
+def get_ddd(value: str, params: str):
+    matches = re.findall(r"(?<=\()\d{2}(?=\))", value)
+    return matches[int(params)] if matches else ""
+
+
+def get_money(value: str, params: str):
+    matches = re.findall(r"\d{1,3}([.,]\d{3})*([.,]\d{2})", value)
+    return matches[int(params)] if matches else ""
+
+
+def get_float(value: str, params: str):
+    matches = re.findall(r"(\d{1,}[,\.]){1,}\d{1,}", value)
+    return matches[int(params)] if matches else ""
+
+
+def get_int(value: str, params: str):
+    matches = re.findall(r"\d{1,}", value)
+    return matches[int(params)] if matches else ""
+
+
+def regex(value: str, params: str):
+    mode, rgx = params.split("|")
+
+    match mode:
+        case "get":
+            return re.search(rgx, value).group() if re.search(rgx, value) else ""
+        case "replace":
+            return re.sub(rgx, "", value)
+        case "match":
+            return value if re.search(rgx, value) else ""
+        case _:
+            return ""
 
 
 def sanity(command: str, value: str):
