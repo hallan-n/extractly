@@ -48,17 +48,17 @@ def if_not_exist_text(value: str, params: str):
 
 def get_date(value: str, params: str | int = 0):
     matches = re.findall(r"((\d{4}|\d{2})(\/|-|\.)){2}(\d{4}|\d{2})", value)
-    return matches[int(params)] if matches else ""
+    return "".join(matches[int(params)]) if matches else ""
 
 
 def get_cnpj(value: str, params: str | int = 0):
     matches = re.findall(r"\d{14}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}", value)
-    return matches[int(params)] if matches else ""
+    return "".join(matches[int(params)]) if matches else ""
 
 
 def get_cpf(value: str, params: str | int = 0):
     matches = re.findall(r"\d{11}|(\d{3}(\.)?){3}-\d{2}", value)
-    return matches[int(params)] if matches else ""
+    return "".join(matches[int(params)]) if matches else ""
 
 
 def get_cpf_cnpj(value: str, params: str | int = 0):
@@ -66,7 +66,7 @@ def get_cpf_cnpj(value: str, params: str | int = 0):
         r"(\d{14}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})|(\d{11}|(\d{3}(\.)?){3}-\d{2})",
         value,
     )
-    return matches[int(params)] if matches else ""
+    return "".join(matches[int(params)]) if matches else ""
 
 
 def get_first_word(value: str):
@@ -122,7 +122,7 @@ def get_float(value: str, params: str):
     return matches[int(params)] if matches else ""
 
 
-def get_int(value: str, params: str):
+def get_int(value: str, params: str = 0):
     matches = re.findall(r"\d{1,}", value)
     return matches[int(params)] if matches else ""
 
@@ -156,3 +156,7 @@ def sanity(command: str, value: str):
 
     except Exception as e:
         raise Exception(f"Função Sanity não encontrado: {e}")
+
+
+
+print(sanity("get_cpf_cnpj", "17193448765 27193448765 37193448765"))

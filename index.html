@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <title>PDF Rectangle Tool com Label na Div</title>
+</head>
+<body class="bg-gray-50 p-6 font-sans">
+
+<div class="flex gap-6">
+  <!-- Área PDF -->
+  <div class="flex-1">
+    <h2 class="text-2xl font-bold mb-4">Upload PDF</h2>
+    <input 
+      type="file" 
+      id="fileInput" 
+      accept="application/pdf"
+      class="p-3 mb-4 border border-gray-300 rounded-lg cursor-pointer bg-gray-200"
+    />
+
+    <button 
+      onclick="logRects()" 
+      type="button"
+      class="p-3 mb-4 ml-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+    >
+      LOG RETÂNGULOS
+    </button>
+
+    <div id="pdfContainer" class="flex flex-col gap-6"></div>
+  </div>
+
+  <!-- Quadro lateral -->
+  <div class="bg-gray-200 p-4 rounded-lg h-[80vh] overflow-y-auto">
+    <h3 class="font-bold mb-2">Campos selecionados</h3>
+    
+    <div id="rectList" class="flex flex-col gap-2"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<!-- substitua apenas o <script> anterior pelo seguinte -->
+<script>
+const fileInput = document.getElementById("fileInput");
+const container = document.getElementById("pdfContainer");
+const rectList = document.getElementById("rectList");
+
+let rectangles = [];
+let canvasesData = new Map();
+let uiMap = new Map();
+let listMap = new Map();
+
+const selectOptions = [
+  { value: "concat", text: "Concatenar", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "after", text: "Após", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "until", text: "Até", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "replace", text: "Apagar", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "case", text: "Caso", inputs: [{placeholder: "isso", type: "text"}, {placeholder: "então", type: "text"}]},
+  { value: "ignore_if", text: "Ignorar se", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "not_contain", text: "Se não contem", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "not_equal", text: "Se não for igual", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "if_existe_text", text: "Se existe o texto", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "if_not_exist_text", text: "Se não existe o texto", inputs: [{placeholder: "texto", type: "text"}]},
+  { value: "get_date", text: "Pegar data"},
+  { value: "get_cnpj", text: "Pegar CNPJ"},
+  { value: "get_cpf", text: "Pegar CPF"},
+  { value: "get_cpf_cnpj", text: "Pegar CNPJ ou CPF"},
+  { value: "get_first_word", text: "Pegar primeira palavra"},
+  { value: "get_last_word", text: "Pegar ultima palavra"},
+  { value: "get_cep", text: "Pegar CEP"},
+  { value: "get_uf", text: "Pegar UF"},
+  { value: "get_fone", text: "Pegar telefone ou Celular"},
+  { value: "get_ddd", text: "Pegar DDD"},
+  { value: "get_email", text: "Pegar email"},
+  { value: "get_money", text: "Pegar dinheiro"},
+  { value: "get_float", text: "Pegar numero com decimais"},
+  { value: "get_int", text: "Pegar número"},
+  { value: "regex", text: "Aplicar REGEX", inputs: [{placeholder: "regex", type: "text"}]},
+];
+
+fileInput.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  container.innerHTML = "";
+  rectangles = [];
+  canvasesData.clear();
+  uiMap.clear();
+  listMap.clear();
+  rectList.innerHTML = "";
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale: 1 });
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "relative inline-block border border-gray-300";
+
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    wrapper.appendChild(canvas);
+    container.appendChild(wrapper);
+
+    const ctx = canvas.getContext("2d");
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const baseImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    canvasesData.set(canvas, baseImage);
+
+    enableDrawing(canvas, wrapper, i-1);
+  }
+});
+
+function enableDrawing(canvas, wrapper, pageNumber) {
+  const ctx = canvas.getContext("2d");
+  let startX, startY, isDrawing = false;
+
+  canvas.addEventListener("mousedown", (e) => {
+    startX = e.offsetX;
+    startY = e.offsetY;
+    isDrawing = true;
+  });
+
+  canvas.addEventListener("mousemove", (e) => {
+    if (!isDrawing) return;
+    const x = e.offsetX;
+    const y = e.offsetY;
+    ctx.putImageData(canvasesData.get(canvas), 0, 0);
+    drawAll(canvas, pageNumber);
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(startX, startY, x - startX, y - startY);
+  });
+
+  canvas.addEventListener("mouseup", (e) => {
+    if (!isDrawing) return;
+    isDrawing = false;
+    const endX = e.offsetX;
+    const endY = e.offsetY;
+
+    // cada retângulo agora tem sanities como array de strings
+    // const scale = 1 / 1.5; // divide pelo scale usado no viewport
+    // const rect = {
+    //     page: pageNumber,
+    //     x: startX * scale,
+    //     y: startY * scale,
+    //     width: (endX - startX) * scale,
+    //     height: (endY - startY) * scale,
+    //     sanities: [],
+    //     name: ""
+    // };
+    const rect = { page: pageNumber, x: startX, y: startY, width: endX - startX, height: endY - startY, sanities: [], name: "" };
+    rectangles.push(rect);
+    drawAll(canvas, pageNumber);
+    addRectToList(rect);
+  });
+}
+
+function drawAll(canvas, pageNumber) {
+  const ctx = canvas.getContext("2d");
+  ctx.putImageData(canvasesData.get(canvas), 0, 0);
+
+  rectangles
+    .filter(r => r.page === pageNumber)
+    .forEach(r => {
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(r.x, r.y, r.width, r.height);
+    });
+}
+
+function addRectToList(rect) {
+  const div = document.createElement("details");
+  div.className = "bg-gray-400 rounded p-4 flex flex-col gap-2";
+
+  const summary = document.createElement("summary");
+  summary.classList = "cursor-pointer";
+  const labelInput = document.createElement("input");
+  labelInput.placeholder = "Nome";
+  labelInput.className = "p-1 rounded border border-gray-300 w-[90%]";
+  labelInput.addEventListener("input", e => rect.name = e.target.value);
+  summary.appendChild(labelInput);
+  div.appendChild(summary);
+
+  const selectContainer = document.createElement("div");
+  selectContainer.className = "flex flex-col gap-1";
+  div.appendChild(selectContainer);
+
+  const divButtons = document.createElement("div");
+  divButtons.className = "flex gap-2 justify-end pt-2";
+
+  const addSelectBtn = document.createElement("button");
+  addSelectBtn.innerText = "Adicionar tratativa pro texto";
+  addSelectBtn.className = "mt-1 px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm";
+  addSelectBtn.onclick = () => createSelectInDiv(selectContainer, rect);
+  divButtons.appendChild(addSelectBtn);
+
+  const deleteRectBtn = document.createElement("button");
+  deleteRectBtn.innerText = "Apagar seleção";
+  deleteRectBtn.className = "mt-1 px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm";
+  deleteRectBtn.onclick = () => {
+    rectangles = rectangles.filter(r => r !== rect);
+    div.remove();
+    listMap.delete(rect);
+    const uiDiv = uiMap.get(rect);
+    if (uiDiv) uiDiv.remove();
+    uiMap.delete(rect);
+    canvasesData.forEach((data, canvas) => {
+      const pageNum = rectangles.find(r => uiMap.get(r)?.parentElement.contains(canvas))?.page;
+      if (pageNum) drawAll(canvas, pageNum);
+      else drawAll(canvas, 1);
+    });
+  };
+  divButtons.appendChild(deleteRectBtn);
+  div.appendChild(divButtons);
+
+  rectList.appendChild(div);
+  listMap.set(rect, div);
+}
+
+function createSelectInDiv(container, rect) {
+  const div = document.createElement("div");
+  div.className = "flex flex-col gap-1";
+
+  const selectRow = document.createElement("div");
+  selectRow.className = "flex gap-1 items-center";
+
+  const select = document.createElement("select");
+  select.className = "flex-1 p-1 border border-gray-300 rounded";
+  selectOptions.forEach(opt => {
+    const option = document.createElement("option");
+    option.value = opt.value;
+    option.text = opt.text;
+    select.appendChild(option);
+  });
+
+  const removeBtn = document.createElement("button");
+  removeBtn.innerText = "X";
+  removeBtn.className = "px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm";
+  removeBtn.onclick = () => {
+    div.remove();
+    updateSanities(rect);
+  };
+
+  selectRow.appendChild(select);
+  selectRow.appendChild(removeBtn);
+  div.appendChild(selectRow);
+
+  const inputContainer = document.createElement("div");
+  inputContainer.className = "flex gap-1 mt-1 max-w-full";
+  div.appendChild(inputContainer);
+
+  function updateInputs() {
+    inputContainer.innerHTML = "";
+    const optionSelected = selectOptions.find(opt => opt.value === select.value);
+    if (optionSelected && optionSelected.inputs) {
+      optionSelected.inputs.forEach(inputDef => {
+        const input = document.createElement("input");
+        input.placeholder = inputDef.placeholder;
+        input.type = inputDef.type || "text";
+        input.className = "p-1 border border-gray-300 rounded flex-1";
+        input.addEventListener("input", () => updateSanities(rect));
+        inputContainer.appendChild(input);
+      });
+    }
+    updateSanities(rect);
+  }
+
+  select.addEventListener("change", updateInputs);
+  select.dispatchEvent(new Event("change"));
+
+  container.appendChild(div);
+}
+
+function updateSanities(rect) {
+  rect.sanities = [];
+  const detailDiv = listMap.get(rect);
+  if (!detailDiv) return;
+
+  const selects = detailDiv.querySelectorAll("select");
+  selects.forEach(sel => {
+    const option = selectOptions.find(opt => opt.value === sel.value);
+    const inputs = sel.parentElement.nextSibling?.querySelectorAll("input");
+    let valueStr = sel.value;
+    if (inputs && inputs.length > 0) {
+      const inputVals = Array.from(inputs).map(i => i.value).filter(v => v);
+      if (inputVals.length) valueStr += ":" + inputVals.join("|");
+    }
+    rect.sanities.push(valueStr);
+  });
+}
+
+async function logRects() {
+  const file = fileInput.files[0];
+  if (!file) return alert("Selecione um arquivo PDF");
+  const template = {
+    name: "Testee",
+    fields: rectangles
+  }
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("template", JSON.stringify(template));
+  
+  const req = await fetch("http://0.0.0.0:8000/", {method: "POST", body: formData})
+  const data = await req.text()
+  console.log(data);
+}
+</script>
+
+</body>
+</html>

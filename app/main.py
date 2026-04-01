@@ -49,8 +49,20 @@ def process_pdf(template: Template, pdf_path: str):
 
     return model
 
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+origins = [
+    "*",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 UPLOAD_DIR = "./uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 

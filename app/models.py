@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class Box(BaseModel):
-    name: str  # Nome do campo
+    name:  str  # Nome do campo
     page: int  # Numero da página
     x: float  # Posição X em relação a página
     y: float  # Posição Y em relação a página
